@@ -1,15 +1,67 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/urlfetch"
+	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
+const URL = "https://api.telegram.org/bot" + TOKEN + "/"
 
+type Incoming struct {
+	UpdateID int32 `json:"update_id"`
+	Message  struct {
+		MessageID int32 `json:"message_id"`
+		From      struct {
+			ID        int32
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Username  string
+			Type      string
+		}
+		Chat struct {
+			ID        int32
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Username  string
+			Type      string
+		}
+		Date     int32
+		Text     string
+		Entities []struct {
+			Type   string
+			Offset int32
+			Length int32
+		}
+	}
+}
+
+func telegram(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	client := &http.Client{
+		Transport: &urlfetch.Transport{
+			Context: c,
+		},
+	}
+	request, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Errorf(c, "%v", err)
+	}
+	r.Body.Close()
+	var Output Incoming
+	err = json.Unmarshal(request, &Output)
+	if err != nil {
+		log.Errorf(c, "%v", err)
+	}
+	log.Debugf(c, "%v", Output)
+	client.Post(URL+"sendMessage", "application/json", strings.NewReader(fmt.Sprintf("{\"chat_id\": %v, \"text\": \"Saluton %v!\n%v\"}", Output.Message.Chat.ID, Output.Message.From.FirstName, Output.Message.Text)))
 }
 
 func init() {
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/"+SECRETLINK, telegram)
 }
