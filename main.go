@@ -110,11 +110,21 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			Diveno.Diveno = []rune{}
 		}
 		diveno = []rune(text)[0]
-		if unicode.IsLetter(diveno) {
-			Diveno.Diveno = append(Diveno.Diveno, diveno)
-		} else {
-			Diveno.Vicoj++
+		Diveno.Diveno = append(Diveno.Diveno, diveno)
+		var dup bool
+		length := len(Diveno.Diveno) - 1
+		for i := 0; i < length; i++ {
+			for j := i + 1; j <= length; j++ {
+				if Diveno.Diveno[i] == Diveno.Diveno[j] {
+					dup = true
+					Diveno.Diveno[j] = Diveno.Diveno[length]
+					Diveno.Diveno = Diveno.Diveno[0:length]
+					length--
+					j--
+				}
+			}
 		}
+
 		montri, ĝusta, kompleta := kontroli(Diveno, diveno)
 		if text != Diveno.Celvorto {
 			mymessage += "Vi divenis '" + string(diveno) + "'\n"
@@ -122,8 +132,13 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			if ĝusta {
 				mymessage += "Tiu litero enestas!"
 			} else {
-				mymessage += "Bedaŭrinde tiu litero ne enestas..."
-				Diveno.Vicoj--
+				if unicode.IsLetter(diveno) {
+					mymessage += "Bedaŭrinde tiu litero ne enestas..."
+
+					if !dup {
+						Diveno.Vicoj--
+					}
+				}
 			}
 			mymessage += "\nVi ĝis nun divenis la literojn " + string(Diveno.Diveno)
 		}
