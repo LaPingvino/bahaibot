@@ -50,6 +50,24 @@ type Informoj struct {
 	Vicoj    int
 }
 
+func iksigi(in string) string {
+	conversion := []struct {
+		from string
+		to   string
+	}{
+		{"cx", "ĉ"},
+		{"gx", "ĝ"},
+		{"hx", "ĥ"},
+		{"jx", "ĵ"},
+		{"sx", "ŝ"},
+		{"ux", "ŭ"},
+	}
+	for _, c := range conversion {
+		in = strings.Replace(in, c.from, c.to, -1)
+	}
+	return in
+}
+
 func kontroli(d Informoj, diveno rune) (montri string, ĝusta bool, kompleta bool) {
 	kompleta = true
 	for _, c := range d.Celvorto {
@@ -109,8 +127,12 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			Diveno.Vicoj = 10
 			Diveno.Diveno = []rune{}
 		}
+		text = iksigi(text)
 		diveno = []rune(text)[0]
-		Diveno.Diveno = append(Diveno.Diveno, diveno)
+		litero := unicode.IsLetter(diveno)
+		if litero {
+			Diveno.Diveno = append(Diveno.Diveno, diveno)
+		}
 		var dup bool
 		length := len(Diveno.Diveno) - 1
 		for i := 0; i < length; i++ {
@@ -131,13 +153,11 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			mymessage += montri + "\n"
 			if ĝusta {
 				mymessage += "Tiu litero enestas!"
-			} else {
-				if unicode.IsLetter(diveno) {
-					mymessage += "Bedaŭrinde tiu litero ne enestas..."
+			} else if litero {
+				mymessage += "Bedaŭrinde tiu litero ne enestas..."
 
-					if !dup {
-						Diveno.Vicoj--
-					}
+				if !dup {
+					Diveno.Vicoj--
 				}
 			}
 			mymessage += "\nVi ĝis nun divenis la literojn " + string(Diveno.Diveno)
