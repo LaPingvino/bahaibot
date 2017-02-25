@@ -118,6 +118,10 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			Localconf.Time = t
 		}
 
+		if t, err := time.Parse("2-1-2006_15:04", options[0]); err == nil {
+			Localconf.Time = t
+		}
+
 		if _, err := datastore.Put(c, k, &Localconf); err != nil {
 			mymessage = "Saving location configuration failed\n"
 		}

@@ -53,10 +53,12 @@ func Default(s Badi) string {
 	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
-		//		" (" + strconv.Itoa(s.YearDay()) + ")" +
+		//		strconv.Itoa(s.Day()) + " " + strconv.Itoa(s.Month()) + " " + strconv.Itoa(s.Year()) +
 		"\n\U0001F305 " + s.Sunrise().Format("15:04") +
 		" \U0001F3DC " + s.Sunnoon().Format("15:04") +
-		" \U0001F307 " + s.Sunset().Format("15:04")
+		" \U0001F307 " + s.Sunset().Format("15:04") +
+		//		"\n(" + strconv.Itoa(s.YearDay()) + " " + s.Time.String() + ")" +
+		""
 }
 
 func (s Badi) Nawruz() time.Time {
@@ -103,12 +105,14 @@ func (s Badi) Day() int {
 }
 
 func (s Badi) YearDay() int {
-	yd := s.Time.YearDay() - s.Nawruz().YearDay()
-	if yd < 1 {
-		yd = time.Date(s.Time.Year(), time.December, 31, 0, 0, 0, 0, TEHRAN).YearDay() + yd
-	}
-	if s.Time.After(s.Sunset()) {
-		yd++
+	var yd int
+	if s.Time.After(s.Nawruz()) {
+		yd = int(s.Time.Sub(s.Nawruz()).Hours()/24) + 1
+	} else {
+		yd = int(s.Time.Sub(Badi{Time: time.Date(s.Time.Year()-1, time.March, 31,
+			0, 0, 0, 0, TEHRAN), Timezone: "Asia/Tehran",
+			Latitude: 35.696111, Longitude: 51.423056}.
+			Nawruz()).Hours()/24 + 1)
 	}
 	return yd
 }
