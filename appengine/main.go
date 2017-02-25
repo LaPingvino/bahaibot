@@ -114,7 +114,7 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if t, err := time.Parse("02-01-2006", options[0]); err == nil {
+		if t, err := time.Parse("2-1-2006", options[0]); err == nil {
 			Localconf.Time = t
 		}
 

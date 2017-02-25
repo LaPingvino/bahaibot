@@ -53,6 +53,7 @@ func Default(s Badi) string {
 	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
+		//		" (" + strconv.Itoa(s.YearDay()) + ")" +
 		"\n\U0001F305 " + s.Sunrise().Format("15:04") +
 		" \U0001F3DC " + s.Sunnoon().Format("15:04") +
 		" \U0001F307 " + s.Sunset().Format("15:04")
@@ -87,7 +88,12 @@ func (s Badi) Month() int {
 
 func (s Badi) Day() int {
 	if s.YearDay() <= 19*18 {
-		return s.YearDay() % 19 // First 18 months
+		yd := s.YearDay() % 19 // First 18 months
+		if yd == 0 {
+			return 19
+		} else {
+			return yd
+		}
 	}
 	if s.Nawruz().Sub(s.Time) <= 19*24*time.Hour {
 		return 19 - int(s.Nawruz().Sub(s.Time).Hours()/24) // `Alá'
