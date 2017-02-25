@@ -12,9 +12,10 @@ import (
 	"regexp"
 	"strings"
 	//	"unicode"
-	"html"
 
 	"github.com/lapingvino/bahaibot/badi"
+	"strconv"
+	"time"
 )
 
 const URL = "https://api.telegram.org/bot" + TOKEN + "/"
@@ -93,13 +94,44 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 	case "/echo":
 		mymessage = regexp.MustCompile(`(["\\])`).ReplaceAllString(text, `\$1`)
 	case "/badi":
-		mymessage = badi.Default()
+		mymessage = badi.Default(badi.Badi{Time: time.Now(), Timezone: "Europe/Amsterdam", Latitude: 52.0882573, Longitude: 5.6173006})
 	}
 	client.Post(URL+"sendMessage", "application/json", strings.NewReader(fmt.Sprintf("{\"chat_id\": %v, \"text\": \"%v\"}", Output.Message.Chat.ID, mymessage)))
 }
 
 func api(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%v", html.EscapeString(badi.Default()))
+	options := strings.Split(r.URL.Path, "/")
+	selected := ""
+	length := len(options)
+	pos := 0
+	for i := range options {
+		if options[i] == "api" && i+1 < length {
+			selected = options[i+1]
+			pos = i + 1
+			break
+		}
+	}
+	switch selected {
+	case "badi":
+		b := badi.Badi{}
+		if length-pos >= 4 {
+			lat, err := strconv.ParseFloat(options[pos+3], 64)
+			if err != nil {
+				fmt.Fprintf(w, "Lat parse error: %v", err)
+			}
+			long, err := strconv.ParseFloat(options[pos+4], 64)
+			if err != nil {
+				fmt.Fprintf(w, "Long parse error: %v", err)
+			}
+			b = badi.Badi{
+				Time:      time.Now(),
+				Timezone:  options[pos+1] + "/" + options[pos+2],
+				Latitude:  lat,
+				Longitude: long,
+			}
+		}
+		fmt.Fprintln(w, badi.Default(b))
+	}
 }
 
 func init() {
