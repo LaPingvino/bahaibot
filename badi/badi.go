@@ -50,6 +50,9 @@ func Default(s Badi) string {
 	if err != nil {
 		return "Location cannot be set, correct timezone"
 	}
+	if s.Month() < 0 || s.Month() > 19 {
+		return "Month set to " + strconv.Itoa(s.Month()) + ", aborting"
+	}
 	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
@@ -107,12 +110,21 @@ func (s Badi) Day() int {
 func (s Badi) YearDay() int {
 	var yd int
 	if s.Time.After(s.Nawruz()) {
-		yd = int(s.Time.Sub(s.Nawruz()).Hours()/24) + 1
+		py := Badi{Time: time.Date(s.Time.Year(), s.Time.Month(), s.Time.Day(),
+			23, 59, 59, 999999999, TEHRAN), Timezone: "Asia/Tehran",
+			Latitude: 35.696111, Longitude: 51.423056}
+		yd = py.Time.YearDay() - py.Nawruz().YearDay()
+		if s.Time.After(s.Sunset()) {
+			yd++
+		}
 	} else {
-		yd = int(s.Time.Sub(Badi{Time: time.Date(s.Time.Year()-1, time.March, 31,
-			0, 0, 0, 0, TEHRAN), Timezone: "Asia/Tehran",
-			Latitude: 35.696111, Longitude: 51.423056}.
-			Nawruz()).Hours()/24 + 1)
+		py := Badi{Time: time.Date(s.Time.Year()-1, time.December, 31,
+			23, 59, 59, 999999999, TEHRAN), Timezone: "Asia/Tehran",
+			Latitude: 35.696111, Longitude: 51.423056}
+		yd = (py.Time.YearDay() - py.Nawruz().YearDay()) + s.Time.YearDay()
+		if s.Time.After(s.Sunset()) {
+			yd++
+		}
 	}
 	return yd
 }
