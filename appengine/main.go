@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"google.golang.org/appengine"
-	//	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/urlfetch"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
-	//	"unicode"
 
 	"github.com/lapingvino/bahaibot/badi"
 	"strconv"
@@ -90,11 +89,35 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 	text := regexp.MustCompile("^/[^ ]* ").ReplaceAllString(Output.Message.Text, "")
 	switch command {
 	case "/start":
-		mymessage = "Alláh-u-Abhá! I am the Bahá'í bot. Please excuse me while I am not complete yet"
+		mymessage = "Alláh-u-Abhá! I am the Bahá'í bot. Use the /badi command to get the current time and date according to the Bahá'í calendar."
 	case "/echo":
 		mymessage = regexp.MustCompile(`(["\\])`).ReplaceAllString(text, `\$1`)
 	case "/badi":
-		mymessage = badi.Default(badi.Badi{Time: time.Now(), Timezone: "Europe/Amsterdam", Latitude: 52.0882573, Longitude: 5.6173006})
+		options := strings.Split(text, " ")
+		var Localconf badi.Badi
+		k := datastore.NewKey(c, "location", "", Output.Message.Chat.ID, nil)
+		if err := datastore.Get(c, k, &Localconf); err != nil && len(options) < 3 {
+			mymessage = "First configure your location: /badi Timezone/Code Latitude Longitude\n"
+			Localconf = badi.Badi{Time: time.Now(), Timezone: "Asia/Tehran", Latitude: 35.715298, Longitude: 51.404343}
+		} else {
+			Localconf.Time = time.Now()
+			if len(options) >= 3 {
+				Localconf.Timezone = options[0]
+				Localconf.Latitude, err = strconv.ParseFloat(options[1], 64)
+				if err != nil {
+					mymessage = "Latitude conversion failed"
+				}
+				Localconf.Longitude, err = strconv.ParseFloat(options[2], 64)
+				if err != nil {
+					mymessage = "Longitude conversion failed"
+				}
+			}
+		}
+
+		if _, err := datastore.Put(c, k, &Localconf); err != nil {
+			mymessage = "Saving location configuration failed\n"
+		}
+		mymessage += badi.Default(Localconf)
 	}
 	client.Post(URL+"sendMessage", "application/json", strings.NewReader(fmt.Sprintf("{\"chat_id\": %v, \"text\": \"%v\"}", Output.Message.Chat.ID, mymessage)))
 }
