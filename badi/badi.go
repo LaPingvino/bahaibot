@@ -50,9 +50,14 @@ func Default(s Badi) string {
 	} else {
 		evening = "\u2600"
 	}
+	location, err := time.LoadLocation(s.Timezone)
+	if err != nil {
+		return "Location cannot be set, correct timezone"
+	}
 	if s.Month() < 0 || s.Month() > 19 {
 		return "Month set to " + strconv.Itoa(s.Month()) + ", aborting"
 	}
+	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
 		//		strconv.Itoa(s.Day()) + " " + strconv.Itoa(s.Month()) + " " + strconv.Itoa(s.Year()) +
