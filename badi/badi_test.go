@@ -19,7 +19,7 @@ func TestKnownDays(t *testing.T) {
 			[]string{"`Alá'", "19"},
 			[]string{"Bahá", "Ayyám-i-Há"},
 		},
-		{"19-3-2017_19:00", "Europe/Amsterdam/52.0882573/5.6173006",
+		{"19-3-2017_18:55", "Europe/Amsterdam/52.0882573/5.6173006",
 			[]string{"Bahá", "1"},
 			[]string{"`Alá'", "Ayyám-i-Há", "19"},
 		},

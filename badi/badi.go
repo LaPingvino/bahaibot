@@ -50,14 +50,9 @@ func Default(s Badi) string {
 	} else {
 		evening = "\u2600"
 	}
-	location, err := time.LoadLocation(s.Timezone)
-	if err != nil {
-		return "Location cannot be set, correct timezone"
-	}
 	if s.Month() < 0 || s.Month() > 19 {
 		return "Month set to " + strconv.Itoa(s.Month()) + ", aborting"
 	}
-	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
 		//		strconv.Itoa(s.Day()) + " " + strconv.Itoa(s.Month()) + " " + strconv.Itoa(s.Year()) +
@@ -144,9 +139,9 @@ func (s Badi) Day() int {
 		}
 	}
 	if s.DaysInYear()-s.YearDay() < 19 {
-		return 19 - (s.DaysInYear() - s.YearDay()) // `Alá'
+		return 20 - (s.DaysInYear() - s.YearDay()) // `Alá'
 	} else {
-		return s.YearDay() - 19*18 // Ayyám-i-Há
+		return s.YearDay() - 19*18 + 1 // Ayyám-i-Há
 	}
 }
 
@@ -189,8 +184,12 @@ func (s Badi) YearDay() int {
 }
 
 func (s Badi) Sunrise() time.Time {
+	t := s.Time
+	if s.Time.Hour() < 2 {
+		t = s.Time.Add(2 * time.Hour)
+	}
 	var r sunrise.Sunrise
-	r.Around(s.Latitude, s.Longitude, s.Time)
+	r.Around(s.Latitude, s.Longitude, t)
 	return r.Sunrise()
 }
 
@@ -199,7 +198,11 @@ func (s Badi) Sunnoon() time.Time {
 }
 
 func (s Badi) Sunset() time.Time {
+	t := s.Time
+	if s.Time.Hour() < 2 {
+		t = s.Time.Add(2 * time.Hour)
+	}
 	var r sunrise.Sunrise
-	r.Around(s.Latitude, s.Longitude, s.Time)
+	r.Around(s.Latitude, s.Longitude, t)
 	return r.Sunset()
 }
