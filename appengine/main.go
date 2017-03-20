@@ -13,8 +13,6 @@ import (
 	"strings"
 
 	"github.com/lapingvino/bahaibot/badi"
-	"strconv"
-	"time"
 )
 
 const URL = "https://api.telegram.org/bot" + TOKEN + "/"
@@ -94,38 +92,23 @@ func telegram(w http.ResponseWriter, r *http.Request) {
 		mymessage = regexp.MustCompile(`(["\\])`).ReplaceAllString(text, `\$1`)
 	case "/badi":
 		options := strings.Split(text, " ")
-		var Localconf badi.Badi
+		var Localconf struct {
+			Options []string
+		}
 		k := datastore.NewKey(c, "location", "", Output.Message.Chat.ID, nil)
-		if err := datastore.Get(c, k, &Localconf); err != nil && len(options) < 3 {
-			mymessage = "First configure your location: /badi Timezone/Code Latitude Longitude\n"
-			Localconf = badi.Badi{Time: time.Now(), Timezone: "Asia/Tehran", Latitude: 35.715298, Longitude: 51.404343}
+		if err := datastore.Get(c, k, &Localconf); err != nil &&
+			len(options) < 3 || len(Localconf.Options) < 3 {
+			mymessage = "First configure your location: /badi Timezone/Code Latitude Longitude\n\n" + badi.Convert("", nil)
 		} else {
-			Localconf.Time = time.Now()
 			if len(options) >= 3 {
-				Localconf.Timezone = options[0]
-				Localconf.Latitude, err = strconv.ParseFloat(options[1], 64)
-				if err != nil {
-					mymessage = "Latitude conversion failed"
-				}
-				Localconf.Longitude, err = strconv.ParseFloat(options[2], 64)
-				if err != nil {
-					mymessage = "Longitude conversion failed"
-				}
+				Localconf.Options = options
 			}
 		}
 
-		if t, err := time.Parse("2-1-2006", options[0]); err == nil {
-			Localconf.Time = t
-		}
-
-		if t, err := time.Parse("2-1-2006_15:04", options[0]); err == nil {
-			Localconf.Time = t
-		}
-
 		if _, err := datastore.Put(c, k, &Localconf); err != nil {
-			mymessage = "Saving location configuration failed\n"
+			mymessage = "Saving location configuration failed:\n" + err.Error() + "\n\n"
 		}
-		mymessage += badi.Default(Localconf)
+		mymessage += badi.Convert(options[0], append(strings.Split(Localconf.Options[0], "/"), Localconf.Options[1:]...))
 	}
 	client.Post(URL+"sendMessage", "application/json", strings.NewReader(fmt.Sprintf("{\"chat_id\": %v, \"text\": \"%v\"}", Output.Message.Chat.ID, mymessage)))
 }
@@ -144,24 +127,7 @@ func api(w http.ResponseWriter, r *http.Request) {
 	}
 	switch selected {
 	case "badi":
-		b := badi.Badi{}
-		if length-pos >= 4 {
-			lat, err := strconv.ParseFloat(options[pos+3], 64)
-			if err != nil {
-				fmt.Fprintf(w, "Lat parse error: %v", err)
-			}
-			long, err := strconv.ParseFloat(options[pos+4], 64)
-			if err != nil {
-				fmt.Fprintf(w, "Long parse error: %v", err)
-			}
-			b = badi.Badi{
-				Time:      time.Now(),
-				Timezone:  options[pos+1] + "/" + options[pos+2],
-				Latitude:  lat,
-				Longitude: long,
-			}
-		}
-		fmt.Fprintln(w, badi.Default(b))
+		fmt.Fprintln(w, badi.Convert("", options[pos+1:]))
 	}
 }
 

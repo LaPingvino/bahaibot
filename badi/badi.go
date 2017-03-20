@@ -14,6 +14,10 @@ type Badi struct {
 	Longitude float64
 }
 
+func Tehran(t time.Time) Badi {
+	return Badi{Time: t, Timezone: "Asia/Tehran", Latitude: 35.696111, Longitude: 51.423056}
+}
+
 var TEHRAN, _ = time.LoadLocation("Asia/Tehran")
 
 var MONTHS = []string{
@@ -64,12 +68,47 @@ func Default(s Badi) string {
 		""
 }
 
+func Convert(input string, location []string) string {
+	b := Badi{Time: time.Now(), Timezone: "Asia/Tehran", Latitude: 35.715298, Longitude: 51.404343}
+
+	if len(location) >= 4 {
+		lat, err := strconv.ParseFloat(location[2], 64)
+		if err != nil {
+			return "Lat parse error: " + err.Error()
+		}
+		long, err := strconv.ParseFloat(location[3], 64)
+		if err != nil {
+			return "Long parse error: " + err.Error()
+		}
+		b.Timezone = location[0] + "/" + location[1]
+		b.Latitude = lat
+		b.Longitude = long
+		loc, err := time.LoadLocation(b.Timezone)
+		if err != nil {
+			loc = TEHRAN
+		}
+		if t, err := time.ParseInLocation("2-1-2006", input, loc); err == nil {
+			b.Time = t
+		}
+
+		if t, err := time.ParseInLocation("2-1-2006_15:04", input, loc); err == nil {
+			b.Time = t
+		}
+	}
+	return Default(b)
+}
+
 func (s Badi) Nawruz() time.Time {
 	var r sunrise.Sunrise
-	md := nawruz.Marchday[s.Time.Year()]
-	nr := time.Date(s.Time.Year(), time.March, md, 0, 0, 0, 0, TEHRAN)
-	r.Around(35.696111, 51.423056, nr)
+	nr := nawRuz(s.Time.Year())
+	r.Around(s.Latitude, s.Longitude, nr)
 	return r.Sunset()
+}
+
+func nawRuz(year int) time.Time {
+	md := nawruz.Marchday[year]
+	nr := time.Date(year, time.March, md-1, 12, 0, 0, 0, TEHRAN)
+	return nr
 }
 
 func (s Badi) Year() int {
@@ -82,9 +121,13 @@ func (s Badi) Year() int {
 
 func (s Badi) Month() int {
 	if s.YearDay() <= 19*18 {
-		return s.YearDay() / 19 // First 18 months
+		m := s.YearDay() / 19 // First 18 months
+		if s.YearDay()%19 != 0 {
+			m++
+		}
+		return m
 	}
-	if s.Nawruz().Sub(s.Time) <= 19*24*time.Hour {
+	if s.DaysInYear()-s.YearDay() < 19 {
 		return 19 // `Alá'
 	} else {
 		return 0 // Ayyám-i-Há
@@ -100,29 +143,45 @@ func (s Badi) Day() int {
 			return yd
 		}
 	}
-	if s.Nawruz().Sub(s.Time) <= 19*24*time.Hour {
-		return 19 - int(s.Nawruz().Sub(s.Time).Hours()/24) // `Alá'
+	if s.DaysInYear()-s.YearDay() < 19 {
+		return 19 - (s.DaysInYear() - s.YearDay()) // `Alá'
 	} else {
 		return s.YearDay() - 19*18 // Ayyám-i-Há
+	}
+}
+
+func daysInYear(year int) int {
+	diy := 365
+	if time.Date(year, time.March, 0, 0, 0, 0, 0, TEHRAN).Day() > 28 {
+		diy++
+	}
+	return diy
+}
+
+func (s Badi) DaysInYear() int {
+	println(daysInYear(s.Time.Year()))
+	println(daysInYear(s.Time.Year() - 1))
+	println(s.Nawruz().YearDay())
+	println(nawRuz(s.Time.Year() - 1).YearDay())
+	println(nawRuz(s.Time.Year() + 1).YearDay())
+	println(s.Nawruz().YearDay())
+	if s.Time.After(s.Nawruz()) {
+		return (daysInYear(s.Time.Year()) - s.Nawruz().YearDay()) + nawRuz(s.Time.Year()+1).YearDay()
+	} else {
+		return (daysInYear(s.Time.Year()-1) - nawRuz(s.Time.Year()-1).YearDay()) + s.Nawruz().YearDay()
 	}
 }
 
 func (s Badi) YearDay() int {
 	var yd int
 	if s.Time.After(s.Nawruz()) {
-		py := Badi{Time: time.Date(s.Time.Year(), s.Time.Month(), s.Time.Day(),
-			23, 59, 59, 999999999, TEHRAN), Timezone: "Asia/Tehran",
-			Latitude: 35.696111, Longitude: 51.423056}
-		yd = py.Time.YearDay() - py.Nawruz().YearDay()
-		if s.Time.After(s.Sunset()) {
+		yd = s.Time.YearDay() - s.Nawruz().YearDay()
+		if !s.Time.Before(s.Sunset()) {
 			yd++
 		}
 	} else {
-		py := Badi{Time: time.Date(s.Time.Year()-1, time.December, 31,
-			23, 59, 59, 999999999, TEHRAN), Timezone: "Asia/Tehran",
-			Latitude: 35.696111, Longitude: 51.423056}
-		yd = (py.Time.YearDay() - py.Nawruz().YearDay()) + s.Time.YearDay()
-		if s.Time.After(s.Sunset()) {
+		yd = (daysInYear(s.Time.Year()-1) - nawRuz(s.Time.Year()-1).YearDay()) + s.Time.YearDay() - 1
+		if !s.Time.Before(s.Sunset()) {
 			yd++
 		}
 	}
