@@ -14,12 +14,6 @@ type Badi struct {
 	Longitude float64
 }
 
-func Tehran(t time.Time) Badi {
-	return Badi{Time: t, Timezone: "Asia/Tehran", Latitude: 35.696111, Longitude: 51.423056}
-}
-
-var TEHRAN, _ = time.LoadLocation("Asia/Tehran")
-
 var MONTHS = []string{
 	"Ayyám-i-Há",
 	"Bahá",
@@ -60,16 +54,14 @@ func Default(s Badi) string {
 	s.Time = s.Time.In(location)
 	return s.Time.Format("15:04") + " " + evening + "\n" +
 		strconv.Itoa(s.Day()) + " " + MONTHS[s.Month()] + " " + strconv.Itoa(s.Year()) +
-		//		strconv.Itoa(s.Day()) + " " + strconv.Itoa(s.Month()) + " " + strconv.Itoa(s.Year()) +
 		"\n\U0001F305 " + s.Sunrise().Format("15:04") +
 		" \U0001F3DC " + s.Sunnoon().Format("15:04") +
 		" \U0001F307 " + s.Sunset().Format("15:04") +
-		//		"\n(" + strconv.Itoa(s.YearDay()) + " " + s.Time.String() + ")" +
 		""
 }
 
 func Convert(input string, location []string) string {
-	b := Badi{Time: time.Now(), Timezone: "Asia/Tehran", Latitude: 35.715298, Longitude: 51.404343}
+	b := Badi{Time: time.Now(), Timezone: "UTC", Latitude: 0, Longitude: 0}
 
 	if len(location) >= 4 {
 		lat, err := strconv.ParseFloat(location[2], 64)
@@ -85,7 +77,7 @@ func Convert(input string, location []string) string {
 		b.Longitude = long
 		loc, err := time.LoadLocation(b.Timezone)
 		if err != nil {
-			loc = TEHRAN
+			loc = time.UTC
 		}
 		if t, err := time.ParseInLocation("2-1-2006", input, loc); err == nil {
 			b.Time = t
@@ -99,21 +91,31 @@ func Convert(input string, location []string) string {
 }
 
 func (s Badi) Nawruz() time.Time {
-	var r sunrise.Sunrise
-	nr := nawRuz(s.Time.Year())
-	r.Around(s.Latitude, s.Longitude, nr)
-	return r.Sunset()
+	md := nawruz.Marchday[s.Time.Year()]
+	// Use sunset time on Nawruz day in Tehran (standard reference)
+	nr := time.Date(s.Time.Year(), time.March, md, 18, 0, 0, 0, time.UTC)
+	return nr
 }
 
+// BadiYearStart returns the actual start of the Badí year (sunset on the day before Nawruz)
+func (s Badi) BadiYearStart() time.Time {
+	var r sunrise.Sunrise
+	md := nawruz.Marchday[s.Time.Year()]
+	nawruzDay := time.Date(s.Time.Year(), time.March, md, 12, 0, 0, 0, time.UTC)
+	// Get sunset on the day before Nawruz
+	dayBefore := nawruzDay.AddDate(0, 0, -1)
+	r.Around(s.Latitude, s.Longitude, dayBefore)
+	return r.Sunset()
+}
 func nawRuz(year int) time.Time {
 	md := nawruz.Marchday[year]
-	nr := time.Date(year, time.March, md-1, 12, 0, 0, 0, TEHRAN)
+	nr := time.Date(year, time.March, md, 12, 0, 0, 0, time.UTC)
 	return nr
 }
 
 func (s Badi) Year() int {
 	y := s.Time.Year() - 1844
-	if s.Time.After(s.Nawruz()) {
+	if s.Time.After(s.BadiYearStart()) {
 		y += 1
 	}
 	return y
@@ -152,19 +154,13 @@ func (s Badi) Day() int {
 
 func daysInYear(year int) int {
 	diy := 365
-	if time.Date(year, time.March, 0, 0, 0, 0, 0, TEHRAN).Day() > 28 {
+	if time.Date(year, time.March, 0, 0, 0, 0, 0, time.UTC).Day() > 28 {
 		diy++
 	}
 	return diy
 }
 
 func (s Badi) DaysInYear() int {
-	println(daysInYear(s.Time.Year()))
-	println(daysInYear(s.Time.Year() - 1))
-	println(s.Nawruz().YearDay())
-	println(nawRuz(s.Time.Year() - 1).YearDay())
-	println(nawRuz(s.Time.Year() + 1).YearDay())
-	println(s.Nawruz().YearDay())
 	if s.Time.After(s.Nawruz()) {
 		return (daysInYear(s.Time.Year()) - s.Nawruz().YearDay()) + nawRuz(s.Time.Year()+1).YearDay()
 	} else {
@@ -174,14 +170,19 @@ func (s Badi) DaysInYear() int {
 
 func (s Badi) YearDay() int {
 	var yd int
-	if s.Time.After(s.Nawruz()) {
-		yd = s.Time.YearDay() - s.Nawruz().YearDay()
-		if !s.Time.Before(s.Sunset()) {
+	if s.Time.After(s.BadiYearStart()) {
+		// We're in the new Badí year
+		yearStart := s.BadiYearStart()
+		daysSinceStart := int(s.Time.Sub(yearStart).Hours() / 24)
+		yd = daysSinceStart + 1
+		// Only increment for sunset if we're not on the year start day
+		if s.Time.After(s.Sunset()) && s.Time.UTC().Truncate(24*time.Hour) != yearStart.UTC().Truncate(24*time.Hour) {
 			yd++
 		}
 	} else {
-		yd = (daysInYear(s.Time.Year()-1) - nawRuz(s.Time.Year()-1).YearDay()) + s.Time.YearDay() - 1
-		if !s.Time.Before(s.Sunset()) {
+		// We're in the previous Badí year
+		yd = (daysInYear(s.Time.Year()-1) - nawRuz(s.Time.Year()-1).YearDay()) + s.Time.YearDay()
+		if s.Time.After(s.Sunset()) {
 			yd++
 		}
 	}

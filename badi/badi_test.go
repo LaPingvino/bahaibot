@@ -1,8 +1,10 @@
 package badi
 
-import "testing"
-import "strings"
-import "time"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestKnownDays(t *testing.T) {
 	testdata := []struct {
@@ -54,8 +56,23 @@ func TestKnownDays(t *testing.T) {
 func TestYearDay(t *testing.T) {
 	beforeNawruz := time.Date(1989, time.January, 25, 0, 0, 0, 0, time.UTC)
 	afterNawruz := time.Date(1989, time.November, 23, 0, 0, 0, 0, time.UTC)
-	bn := Tehran(beforeNawruz).DaysInYear()
-	an := Tehran(afterNawruz).DaysInYear()
+
+	// Create Badi struct with Tehran coordinates and timezone
+	tehranBefore := Badi{
+		Time:      beforeNawruz,
+		Timezone:  "Asia/Tehran",
+		Latitude:  35.6892,
+		Longitude: 51.3890,
+	}
+	tehranAfter := Badi{
+		Time:      afterNawruz,
+		Timezone:  "Asia/Tehran",
+		Latitude:  35.6892,
+		Longitude: 51.3890,
+	}
+
+	bn := tehranBefore.DaysInYear()
+	an := tehranAfter.DaysInYear()
 	if bn < 365 || bn > 366 || an < 365 || an > 366 {
 		t.Errorf("Badí DaysInYear() fails: bn: %v, an: %v", bn, an)
 	}
